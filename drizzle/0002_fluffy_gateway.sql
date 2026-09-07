@@ -1,0 +1,1 @@
+ALTER TABLE `chat_messages` ADD `createdAtUtc` bigint DEFAULT 0 NOT NULL;
