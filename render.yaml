@@ -3,43 +3,29 @@ services:
     name: silelo-neo-connect
     runtime: node
     plan: free
-    buildCommand: npm install
-    startCommand: node server.js
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    startCommand: node dist/index.js
     healthCheckPath: /health
     envVars:
-      - key: OPENAI_API_KEY
+      - key: NODE_ENV
+        value: production
+      - key: VITE_APP_ID
         sync: false
-      - key: OPENAI_TTS_MODEL
-        value: gpt-4o-mini-tts
-      - key: GROQ_API_KEY
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
         sync: false
-      - key: GEMINI_API_KEYS
+      - key: OAUTH_SERVER_URL
+        sync: false
+      - key: OWNER_OPEN_ID
+        sync: false
+      - key: BUILT_IN_FORGE_API_URL
+        sync: false
+      - key: BUILT_IN_FORGE_API_KEY
         sync: false
       - key: OPENROUTER_API_KEY
         sync: false
-      - key: DEEPSEEK_API_KEY
-        sync: false
-      - key: OLLAMA_URL
-        sync: false
-      - key: RUN_SECRET
-        sync: false
-      - key: GITHUB_TOKEN
-        sync: false
-      - key: GITHUB_OWNER
-        value: phanuphanthcanthrsngsaeng17-del
-      - key: GITHUB_REPO
-        value: silelo-neo-connect
-      - key: NEO_CONNECT_API_KEY
-        sync: false
-      - key: MANUS_API_KEY
-        sync: false
-      - key: CONNECTOR_GATEWAY_URL
-        sync: false
-      - key: CONNECTOR_GATEWAY_TOKEN
-        sync: false
-      - key: CONNECTOR_GATEWAY_TIMEOUT_MS
-        value: "15000"
+      - key: OPENROUTER_MODELS
+        value: openai/gpt-oss-120b:free,qwen/qwen3-coder:free,deepseek/deepseek-r1:free,google/gemma-3-27b-it:free,meta-llama/llama-3.3-70b-instruct:free,mistralai/mistral-small-3.1-24b-instruct:free,nvidia/llama-3.1-nemotron-ultra-253b-v1:free,openrouter/auto
       - key: APP_URL
         value: https://silelo-neo-connect.onrender.com
-      - key: POLLINATIONS_MODEL
-        value: openai
