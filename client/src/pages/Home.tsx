@@ -21,7 +21,6 @@ const statusMeta = {
 } as const;
 
 type Status = keyof typeof statusMeta;
-
 type LocalMessage = Message & { id: string; provider?: string | null; model?: string | null; status?: string };
 
 function StatusBadge({ state }: { state: Status }) {
@@ -66,7 +65,7 @@ function CatalogPanel({ catalog }: { catalog: any }) {
 export default function Home() {
   const auth = useAuth();
   const historyQuery = trpc.chat.history.useQuery({ limit: 80 }, { enabled: auth.isAuthenticated, retry: false });
-  const catalogQuery = trpc.chat.catalog.useQuery(undefined, { enabled: auth.isAuthenticated, retry: false });
+  const catalogQuery = trpc.chat.catalog.useQuery(undefined, { enabled: true, retry: false });
   const sendMutation = trpc.chat.send.useMutation();
   const [localMessages, setLocalMessages] = useState<LocalMessage[]>([]);
   const [pendingConfirmation, setPendingConfirmation] = useState<string | null>(null);
@@ -80,10 +79,6 @@ export default function Home() {
   }, [historyQuery.data?.messages, localMessages]);
 
   const handleSend = async (content: string, confirm = false) => {
-    if (!auth.isAuthenticated) {
-      toast.error("กรุณาเข้าสู่ระบบก่อนเริ่มสนทนา");
-      return;
-    }
     const localId = `${Date.now()}-${Math.random()}`;
     setActivity(content.trim().startsWith("/") ? "tool-running" : "thinking");
     if (!confirm) setLocalMessages(previous => [...previous, { id: localId, role: "user", content }]);
@@ -110,36 +105,23 @@ export default function Home() {
 
   if (auth.loading) return <div className="app-loading"><Sparkles className="pulse" size={22} /><span>กำลังเปิดห้องสลี่…</span></div>;
 
-  if (!auth.isAuthenticated) return <main className="login-screen">
-    <div className="login-grid" />
-    <Card className="login-card">
-      <div className="brand-mark"><Sparkles size={26} /></div>
-      <p className="eyebrow">SILELO / NEO-CONNECT</p>
-      <h1>ห้องแชทของสลี่</h1>
-      <p className="login-copy">ห้องเดียวสำหรับการสนทนา งานโค้ด สรุป แปล และเครื่องมือที่ได้รับอนุญาต ระบบจะแสดงสถานะและสิทธิ์ตามจริงก่อนดำเนินการ</p>
-      <Button className="login-button" onClick={() => startLogin()}><LogIn size={17} />เข้าสู่ระบบ Manus</Button>
-      <div className="login-note"><LockKeyhole size={14} />ประวัติการสนทนาแยกตามบัญชีของคุณ</div>
-    </Card>
-  </main>;
-
-  const displayName = auth.user?.name || auth.user?.email || "ผู้ใช้";
+  const displayName = auth.user?.name || auth.user?.email || "ผู้ใช้ทั่วไป";
   const catalog = catalogQuery.data;
   const runtime = catalog?.runtime;
-  const activeModel = catalog?.models.find((item: any) => item.id === modelId);
 
   return <main className="silelo-app">
     <div className="ambient ambient-one" /><div className="ambient ambient-two" />
     <header className="app-header">
       <div className="brand-lockup"><div className="brand-icon"><Sparkles size={17} /></div><div><div className="brand-name">SILELO</div><div className="brand-sub">NEO / SINGLE ROOM</div></div></div>
       <div className="room-pill"><span className="room-live" />ห้องเดียว · <strong>สลี่</strong></div>
-      <div className="header-actions"><span className="user-chip">{displayName}</span><Button variant="ghost" size="sm" onClick={() => auth.logout()} className="logout-button">ออกจากระบบ</Button></div>
+      <div className="header-actions">{auth.isAuthenticated ? <><span className="user-chip">{displayName}</span><Button variant="ghost" size="sm" onClick={() => auth.logout()} className="logout-button">ออกจากระบบ</Button></> : <Button variant="outline" size="sm" onClick={() => startLogin()} className="login-button"><LogIn size={15} />เข้าสู่ระบบเพื่อบันทึกประวัติ</Button>}</div>
     </header>
 
     <section className="app-layout">
       <aside className="context-rail">
         <div className="rail-section">
           <p className="rail-label">ACTIVE ROOM</p>
-          <div className="active-room"><div className="avatar-sli">ส</div><div><strong>สลี่</strong><span>ห้องหลักของคุณ</span></div><span className="active-dot" /></div>
+          <div className="active-room"><div className="avatar-sli">ส</div><div><strong>สลี่</strong><span>{auth.isAuthenticated ? "ห้องหลักของคุณ" : "โหมดผู้เยี่ยมชม"}</span></div><span className="active-dot" /></div>
         </div>
         <Separator />
         <div className="rail-section rail-status">
@@ -151,14 +133,14 @@ export default function Home() {
           <div className="github-allowlist"><span>REPOSITORY ALLOWLIST</span>{runtime?.githubRepositories?.map((repo: string) => <code key={repo}>{repo}</code>) || <code>กำลังตรวจสอบ…</code>}</div>
           <div className="rail-status-row"><WandSparkles size={15} /><span>ปลั๊กอิน</span><StatusBadge state="unsupported" /></div>
           <div className="rail-status-row"><TerminalSquare size={15} /><span>บริการภายนอก</span><StatusBadge state="setup" /></div>
-          <div className="rail-status-row"><ShieldCheck size={15} /><span>สิทธิ์</span><span className="permission-text">OAuth จริง</span></div>
+          <div className="rail-status-row"><ShieldCheck size={15} /><span>สิทธิ์</span><span className="permission-text">{auth.isAuthenticated ? "OAuth จริง" : "Guest · ไม่บันทึกประวัติ"}</span></div>
         </div>
         <Separator />
-        <div className="rail-footnote"><LockKeyhole size={14} /><span>สลี่จะไม่อ้างว่าเชื่อมต่อบริการภายนอกหรือแก้ไฟล์จริงจนกว่าจะมีสิทธิ์และการยืนยัน</span></div>
+        <div className="rail-footnote"><LockKeyhole size={14} /><span>{auth.isAuthenticated ? "สลี่จะไม่อ้างว่าเชื่อมต่อบริการภายนอกหรือแก้ไฟล์จริงจนกว่าจะมีสิทธิ์และการยืนยัน" : "โหมดผู้เยี่ยมชมเริ่มคุยได้ทันที; เข้าสู่ระบบเมื่ออยากเก็บประวัติแยกตามบัญชี"}</span></div>
       </aside>
 
       <section className="chat-column">
-        <div className="chat-heading"><div><p className="eyebrow">PRIVATE AI WORKSPACE</p><h1>สวัสดีครับ, {displayName.split(" ")[0]}</h1><p>สลี่อยู่ตรงนี้แล้ว — ห้องเดียวที่รวมความสามารถเดิมไว้อย่างโปร่งใส</p></div><Button variant="outline" className="catalog-toggle" onClick={() => setShowCatalog(value => !value)}><WandSparkles size={16} />{showCatalog ? "ซ่อน Catalog" : "ดู Catalog"}</Button></div>
+        <div className="chat-heading"><div><p className="eyebrow">PRIVATE AI WORKSPACE</p><h1>สวัสดีครับ, {displayName.split(" ")[0]}</h1><p>สลี่อยู่ตรงนี้แล้ว — เปิดห้องคุยได้ทันทีโดยไม่ต้องล็อกอิน</p></div><Button variant="outline" className="catalog-toggle" onClick={() => setShowCatalog(value => !value)}><WandSparkles size={16} />{showCatalog ? "ซ่อน Catalog" : "ดู Catalog"}</Button></div>
         <TaskLogs events={historyQuery.data?.events || []} />
         {showCatalog && catalog && <Card className="catalog-card"><CardHeader><CardTitle>ความสามารถที่ตรวจพบใน runtime</CardTitle><p>รายการนี้เป็น baseline จากแอปต้นทาง และแสดงสถานะจริงของ Manus ตอนนี้</p></CardHeader><CardContent><CatalogPanel catalog={catalog} /></CardContent></Card>}
         <div className={cn("activity-status", `activity-${activity}`)}><span className="activity-dot" />{activity === "idle" ? "พร้อมรับคำสั่ง" : activity === "thinking" ? "กำลังคิด" : activity === "tool-running" ? "กำลังตรวจสอบความสามารถ / รอการยืนยัน" : activity === "success" ? "สำเร็จ" : activity === "error" ? "เกิดข้อผิดพลาด" : "ยกเลิก"}</div>
@@ -166,7 +148,7 @@ export default function Home() {
         <div className="chat-stage">
           <AIChatBox
             messages={messages}
-              onSendMessage={content => handleSend(content)}
+            onSendMessage={content => handleSend(content)}
             isLoading={sendMutation.isPending}
             placeholder="พิมพ์ข้อความถึงสลี่…"
             emptyStateMessage="เริ่มบทสนทนากับสลี่"
@@ -178,6 +160,6 @@ export default function Home() {
         <div className="composer-meta"><ModelSelector models={catalog?.models || [{ id: "auto", label: "อัตโนมัติ", state: "ready" }]} value={modelId} onChange={setModelId} /><ComposerCapabilities runtime={runtime} /><span className="composer-hint">Enter ส่ง · Shift+Enter ขึ้นบรรทัดใหม่</span></div>
       </section>
     </section>
-    <footer className="app-footer"><span>สถานะและสิทธิ์แสดงตาม runtime จริง</span><span>ข้อมูลห้อง “สลี่” แยกตามบัญชี Manus</span></footer>
+    <footer className="app-footer"><span>สถานะและสิทธิ์แสดงตาม runtime จริง</span><span>{auth.isAuthenticated ? "ข้อมูลห้อง “สลี่” แยกตามบัญชี Manus" : "Guest mode · ข้อความไม่บันทึกลงบัญชี"}</span></footer>
   </main>;
 }
