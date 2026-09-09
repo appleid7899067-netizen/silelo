@@ -13,7 +13,8 @@ export const SINGLE_ROOM_NAME = "สลี่" as const;
 
 /** Baseline models exposed by silelo-neo-connect before the Manus migration. */
 export const BASELINE_MODELS: CatalogItem[] = [
-  { id: "auto", label: "อัตโนมัติ (โซ่เต็ม)", description: "เลือกเส้นทางที่เหมาะสมให้อัตโนมัติ", state: "ready", note: "Manus gateway" },
+  { id: "auto", label: "อัตโนมัติ (โซ่เต็ม)", description: "เลือกเส้นทางที่เหมาะสมให้อัตโนมัติ", state: "ready", note: "Manus gateway / OpenRouter" },
+  { id: "openai/gpt-4o-mini", label: "GPT-4o mini", description: "โมเดลสนทนาขนาดเล็กผ่าน OpenRouter", state: "setup", note: "OpenRouter" },
   { id: "openrouter_fast", label: "OpenRouter · เน้นความเร็ว", description: "โหมดสำรองความหน่วงต่ำจากต้นทาง", state: "setup", note: "ต้องตั้งค่า provider ภายนอก" },
   { id: "openrouter_balanced", label: "OpenRouter · สมดุล/สำรอง", description: "โหมดสำรองแบบสมดุล", state: "setup", note: "ต้องตั้งค่า provider ภายนอก" },
   { id: "deepseek/deepseek-v4-flash", label: "DeepSeek V4 Flash · Max", description: "โมเดลสนทนาและโค้ดจาก baseline", state: "setup", note: "ขึ้นกับ catalog ของ Manus" },
@@ -52,9 +53,9 @@ export const BASELINE_SKILLS: CatalogItem[] = [
 export const BASELINE_COMMANDS: CatalogItem[] = [
   { id: "/help", label: "/help", description: "แสดงคำสั่งหลักและแนวทางใช้ห้องสลี่", state: "ready", note: "คำสั่งภายใน" },
   { id: "/status", label: "/status", description: "แสดงสถานะความสามารถและสิทธิ์ปัจจุบัน", state: "ready", note: "ตรวจจาก runtime" },
-  { id: "/models", label: "/models", description: "แสดง Model Catalog และสถานะ", state: "ready", note: "ตรวจจาก Manus catalog" },
+  { id: "/models", label: "/models", description: "แสดง Model Catalog และสถานะ", state: "ready", note: "ตรวจจาก runtime catalog" },
   { id: "/skills", label: "/skills", description: "แสดง Skill Catalog และสถานะ", state: "ready", note: "baseline manifest" },
-  { id: "/draw", label: "/draw <prompt>", description: "สร้างภาพเมื่อได้รับคำสั่งอย่างชัดเจน", state: "ready", note: "ยืนยันก่อนเรียกใช้ service ที่มีค่าใช้จ่าย/ทรัพยากร" },
+  { id: "/draw <prompt>", label: "/draw <prompt>", description: "สร้างภาพเมื่อได้รับคำสั่งอย่างชัดเจน", state: "ready", note: "ยืนยันก่อนเรียกใช้ service ที่มีค่าใช้จ่าย/ทรัพยากร" },
   { id: "/translate", label: "/translate <ภาษา> :: <ข้อความ>", description: "แปลข้อความผ่าน AI", state: "ready", note: "ใช้ Manus LLM" },
   { id: "/summarize", label: "/summarize <ข้อความ>", description: "สรุปข้อความผ่าน AI", state: "ready", note: "ใช้ Manus LLM" },
   { id: "/project", label: "/project ...", description: "ดูสถานะหรือวางแผนแก้โปรเจกต์จริง", state: "setup", note: "ต้องยืนยันและเชื่อม GitHub" },
