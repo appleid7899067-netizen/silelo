@@ -1,4 +1,5 @@
 import { ENV } from "./env";
+import { listMultiProviderModels, multiProviderChat } from "./multiProvider";
 
 export type Role = "system" | "user" | "assistant" | "tool" | "function";
 
@@ -48,7 +49,11 @@ const normalizeToolChoice = (toolChoice: ToolChoice | undefined, tools: Tool[] |
   return toolChoice;
 };
 const resolveApiUrl = () => ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0 ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions` : "https://forge.manus.im/v1/chat/completions";
-const assertApiKey = () => { if (!ENV.forgeApiKey && !ENV.openRouterApiKey) throw new Error("No LLM provider is configured"); };
+const assertApiKey = () => {
+  if (!ENV.forgeApiKey && !ENV.openRouterApiKey && !ENV.groqApiKey && !ENV.qwenApiKey && !ENV.googleApiKey) {
+    throw new Error("No LLM provider is configured");
+  }
+};
 const normalizeResponseFormat = ({ responseFormat, response_format, outputSchema, output_schema }: { responseFormat?: ResponseFormat; response_format?: ResponseFormat; outputSchema?: OutputSchema; output_schema?: OutputSchema }): ResponseFormat | undefined => {
   const explicitFormat = responseFormat || response_format;
   if (explicitFormat) {
@@ -96,22 +101,7 @@ const fetchWithBackoff = async (url: string, init: RequestInit): Promise<Respons
   throw lastError instanceof Error ? lastError : new Error("LLM request failed after exhausting retries");
 };
 
-const invokeOpenRouterFallback = async (payload: Record<string, unknown>): Promise<InvokeResult> => {
-  if (!ENV.openRouterApiKey) throw new Error("OPENROUTER_API_KEY is not configured");
-  const failures: string[] = [];
-  for (const model of ENV.openRouterModels) {
-    const candidate = { ...payload, model };
-    const response = await fetchWithBackoff("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${ENV.openRouterApiKey}`, ...(process.env.APP_URL ? { "HTTP-Referer": process.env.APP_URL } : {}), "X-Title": "SILELO Neo-Connect" },
-      body: JSON.stringify(candidate),
-    });
-    if (response.ok) return (await response.json()) as InvokeResult;
-    const detail = (await response.text()).slice(0, 240);
-    failures.push(`${model}: ${response.status} ${detail}`);
-  }
-  throw new Error(`OpenRouter fallback exhausted across ${ENV.openRouterModels.length} models: ${failures.join(" | ")}`);
-};
+const invokeExternalFallback = async (payload: InvokeParams): Promise<InvokeResult> => multiProviderChat(payload);
 
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   assertApiKey();
@@ -127,13 +117,21 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   if (reasoning) payload.reasoning = reasoning;
   const normalizedResponseFormat = normalizeResponseFormat({ responseFormat, response_format, outputSchema, output_schema });
   if (normalizedResponseFormat) payload.response_format = normalizedResponseFormat;
-  if (!ENV.forgeApiKey) return invokeOpenRouterFallback(payload);
-  const response = await fetchWithBackoff(resolveApiUrl(), { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${ENV.forgeApiKey}` }, body: JSON.stringify(payload) });
+
+  if (!ENV.forgeApiKey) return invokeExternalFallback({ ...params, messages });
+
+  const response = await fetchWithBackoff(resolveApiUrl(), {
+    method: "POST",
+    headers: { "content-type": "application/json", authorization: `Bearer ${ENV.forgeApiKey}` },
+    body: JSON.stringify(payload),
+  });
   if (!response.ok) {
     const errorText = await response.text();
-    if (ENV.openRouterApiKey) {
-      try { return await invokeOpenRouterFallback(payload); }
-      catch (fallbackError) { throw new Error(`LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}; ${fallbackError instanceof Error ? fallbackError.message : "OpenRouter fallback failed"}`); }
+    if (ENV.openRouterApiKey || ENV.groqApiKey || ENV.qwenApiKey || ENV.googleApiKey) {
+      try { return await invokeExternalFallback({ ...params, messages }); }
+      catch (fallbackError) {
+        throw new Error(`LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}; ${fallbackError instanceof Error ? fallbackError.message : "external fallback failed"}`);
+      }
     }
     throw new Error(`LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`);
   }
@@ -146,21 +144,17 @@ export type ModelsResponse = { object: string; data: ModelInfo[] };
 export async function listLLMModels(): Promise<ModelsResponse> {
   assertApiKey();
 
-  // When SILELO is configured with OpenRouter only, never probe the Manus
-  // Forge endpoint with an empty key. The old behavior made the catalog look
-  // broken even though chat completion itself could work through OpenRouter.
-  if (!ENV.forgeApiKey && ENV.openRouterApiKey) {
-    const now = Math.floor(Date.now() / 1000);
-    return {
-      object: "list",
-      data: ENV.openRouterModels.map(id => ({ id, object: "model", created: now, owned_by: id.split("/")[0] || "openrouter" })),
-    };
+  if (!ENV.forgeApiKey) {
+    return { object: "list", data: listMultiProviderModels() };
   }
 
   const url = ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0 ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/models` : "https://forge.manus.im/v1/models";
   const response = await fetchWithBackoff(url, { headers: { authorization: `Bearer ${ENV.forgeApiKey}` } });
   if (!response.ok) {
     const errorText = await response.text();
+    if (ENV.openRouterApiKey || ENV.groqApiKey || ENV.qwenApiKey || ENV.googleApiKey) {
+      return { object: "list", data: listMultiProviderModels() };
+    }
     throw new Error(`List LLM models failed: ${response.status} ${response.statusText} – ${errorText}`);
   }
   return (await response.json()) as ModelsResponse;
