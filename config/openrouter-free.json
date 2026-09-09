@@ -1,0 +1,18 @@
+{
+  "endpoint": "https://openrouter.ai/api/v1/models",
+  "chatEndpoint": "https://openrouter.ai/api/v1/chat/completions",
+  "routerModel": "openrouter/free",
+  "selection": {
+    "textOnly": true,
+    "promptPrice": 0,
+    "completionPrice": 0,
+    "requestPrice": 0,
+    "excludeAgenticHarnessOnly": true
+  },
+  "fallback": {
+    "enabled": true,
+    "maxAttempts": 8,
+    "skipStatusCodes": [400, 401, 403, 404, 408, 409, 429, 500, 502, 503, 504]
+  },
+  "policy": "Refresh /models at runtime instead of trusting a hard-coded free-model list. Prefer openrouter/free when dynamic selection is acceptable."
+}
