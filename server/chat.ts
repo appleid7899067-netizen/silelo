@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { generateImage } from "./_core/imageGeneration";
 import { invokeLLM, listLLMModels } from "./_core/llm";
-import { protectedProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { addChatEvent, addChatMessage, getChatEvents, getChatMessages, SINGLE_ROOM_DB_KEY } from "./db";
 import { confirmationFor, requiresConfirmation } from "../shared/confirmation";
 import { allowedGithubRepositories, getGithubRepository, githubPermissionStatus, updateGithubFile } from "./github";
@@ -92,14 +92,14 @@ async function capabilityCatalog() {
       githubError: github.error,
       plugins: "unsupported" as CapabilityState,
       tts: "setup" as CapabilityState,
-      permissions: "Manus OAuth session; external write actions require separate integration and confirmation",
+      permissions: "Guest chat is available; Manus OAuth session unlocks private history and account-scoped features",
     },
   };
 }
 
 function markdownCatalog(items: CatalogItem[], title: string, total = items.length) {
   const shown = items.slice(0, 36);
-  return `${catalogText(title, shown)}\n\nแสดงตัวอย่าง ${shown.length} จากทั้งหมด ${total} รายการใน baseline`; 
+  return `${catalogText(title, shown)}\n\nแสดงตัวอย่าง ${shown.length} จากทั้งหมด ${total} รายการใน baseline`;
 }
 
 function parseCommand(content: string) {
@@ -107,7 +107,8 @@ function parseCommand(content: string) {
   return match ? { command: match[1].toLowerCase(), argument: (match[2] || "").trim() } : null;
 }
 
-async function recordEvent(userId: number, eventType: string, label: string, status: "running" | "success" | "error" | "waiting_confirmation" | "cancelled", detail?: string) {
+async function recordEvent(userId: number | undefined, eventType: string, label: string, status: "running" | "success" | "error" | "waiting_confirmation" | "cancelled", detail?: string) {
+  if (!userId) return;
   try {
     await addChatEvent({ userId, eventType, label, status, detail });
   } catch (error) {
@@ -115,7 +116,7 @@ async function recordEvent(userId: number, eventType: string, label: string, sta
   }
 }
 
-async function withErrorEvent<T>(userId: number, label: string, action: () => Promise<T>): Promise<T> {
+async function withErrorEvent<T>(userId: number | undefined, label: string, action: () => Promise<T>): Promise<T> {
   try {
     return await action();
   } catch (error) {
@@ -131,9 +132,10 @@ export const chatRouter = router({
     return { room: { key: SINGLE_ROOM_DB_KEY, name: SINGLE_ROOM_NAME }, messages: rows, events };
   }),
 
-  catalog: protectedProcedure.query(async () => capabilityCatalog()),
+  catalog: publicProcedure.query(async () => capabilityCatalog()),
 
-  send: protectedProcedure.input(sendInput).mutation(async ({ ctx, input }) => {
+  send: publicProcedure.input(sendInput).mutation(async ({ ctx, input }) => {
+    const userId = ctx.user?.id;
     const text = input.content.trim();
     const modelId = input.modelId || "auto";
     const catalog = await capabilityCatalog();
@@ -143,24 +145,26 @@ export const chatRouter = router({
     }
 
     const command = parseCommand(text);
-    await recordEvent(ctx.user.id, "request.received", "รับคำขอจากผู้ใช้", "running", text.slice(0, 500));
+    await recordEvent(userId, "request.received", "รับคำขอจากผู้ใช้", "running", text.slice(0, 500));
     if (command?.command === "draw" && command.argument && requiresConfirmation("generate-image", input.confirm)) {
       const policy = confirmationFor("generate-image");
-      await recordEvent(ctx.user.id, "confirmation.required", policy.title, "waiting_confirmation", command?.argument);
+      await recordEvent(userId, "confirmation.required", policy.title, "waiting_confirmation", command?.argument);
       return { ok: true, room: SINGLE_ROOM_NAME, needsConfirmation: true, confirmation: `${policy.title}: ${policy.reason}\n\n> ${command.argument}\n\nยืนยันแล้วจึงจะเริ่มดำเนินการ` };
     }
     const criticalAction = command?.command === "plugin" ? "plugin" : command?.command === "external" ? "external-service" : command?.command === "save" ? "save-work" : undefined;
     if (criticalAction && requiresConfirmation(criticalAction, input.confirm)) {
       const policy = confirmationFor(criticalAction);
-      await recordEvent(ctx.user.id, "confirmation.required", policy.title, "waiting_confirmation", command?.argument);
+      await recordEvent(userId, "confirmation.required", policy.title, "waiting_confirmation", command?.argument);
       return { ok: true, room: SINGLE_ROOM_NAME, needsConfirmation: true, confirmation: `${policy.title}: ${policy.reason}\n\nคำสั่งนี้ยังไม่ทำงานจนกว่าจะยืนยันอีกครั้ง` };
     }
     if ((command?.command === "gh" || command?.command === "project") && requiresConfirmation(command.command === "gh" ? "github-read" : "github-write", input.confirm)) {
       const policy = confirmationFor(command.command === "gh" ? "github-read" : "github-write");
-      await recordEvent(ctx.user.id, "confirmation.required", policy.title, "waiting_confirmation", command?.argument);
+      await recordEvent(userId, "confirmation.required", policy.title, "waiting_confirmation", command?.argument);
       return { ok: true, room: SINGLE_ROOM_NAME, needsConfirmation: true, confirmation: `${policy.title}: ${policy.reason}\n\nคำสั่งนี้ยังไม่ทำงานจนกว่าจะตั้งค่า integration และยืนยันอีกครั้ง` };
     }
-    await addChatMessage({ userId: ctx.user.id, role: "user", content: text, model: modelId, status: "complete", createdAtUtc: Date.now() });
+    if (userId) {
+      await addChatMessage({ userId, role: "user", content: text, model: modelId, status: "complete", createdAtUtc: Date.now() });
+    }
     let reply = "";
     let provider = "manus";
     let usedModel = modelId;
@@ -178,7 +182,7 @@ export const chatRouter = router({
       if (!command.argument) {
         reply = "ใช้รูปแบบ `/draw <คำอธิบายภาพ>` และสลี่จะแสดงคำขอยืนยันก่อนสร้างภาพ";
       } else {
-        const generated = await withErrorEvent(ctx.user.id, "สร้างภาพล้มเหลว", () => generateImage({ prompt: command.argument }));
+        const generated = await withErrorEvent(userId, "สร้างภาพล้มเหลว", () => generateImage({ prompt: command.argument }));
         attachmentUrl = generated.url;
         reply = `สร้างภาพให้แล้วตามคำขอที่ยืนยัน:\n\n![ภาพที่สร้าง](${generated.url})\n\nสถานะ: เรียกใช้ Manus Image Service สำเร็จ`;
         provider = "manus-image";
@@ -188,13 +192,13 @@ export const chatRouter = router({
       const split = command.argument.split(/\s*::\s*/);
       if (split.length < 2) reply = "ใช้รูปแบบ `/translate <ภาษาเป้าหมาย> :: <ข้อความ>`";
       else {
-        const response = await withErrorEvent(ctx.user.id, "แปลข้อความล้มเหลว", () => invokeLLM({ messages: [{ role: "system", content: `แปลข้อความเป็น${split[0]} รักษาความหมายและรูปแบบเดิม ตอบเฉพาะคำแปล` }, { role: "user", content: split.slice(1).join(" :: ") }], model: modelId === "auto" ? undefined : modelId, maxTokens: 2000 }));
+        const response = await withErrorEvent(userId, "แปลข้อความล้มเหลว", () => invokeLLM({ messages: [{ role: "system", content: `แปลข้อความเป็น${split[0]} รักษาความหมายและรูปแบบเดิม ตอบเฉพาะคำแปล` }, { role: "user", content: split.slice(1).join(" :: ") }], model: modelId === "auto" ? undefined : modelId, maxTokens: 2000 }));
         reply = normalizeContent(response.choices[0]?.message?.content) || "ไม่พบคำแปล";
       }
     } else if (command?.command === "summarize") {
       if (!command.argument) reply = "ใช้รูปแบบ `/summarize <ข้อความ>`";
       else {
-        const response = await withErrorEvent(ctx.user.id, "สรุปข้อความล้มเหลว", () => invokeLLM({ messages: [{ role: "system", content: "สรุปข้อความเป็นภาษาไทยอย่างกระชับ ระบุประเด็นสำคัญ และอย่าเติมข้อมูลที่ไม่มีในต้นฉบับ" }, { role: "user", content: command.argument }], model: modelId === "auto" ? undefined : modelId, maxTokens: 1200 }));
+        const response = await withErrorEvent(userId, "สรุปข้อความล้มเหลว", () => invokeLLM({ messages: [{ role: "system", content: "สรุปข้อความเป็นภาษาไทยอย่างกระชับ ระบุประเด็นสำคัญ และอย่าเติมข้อมูลที่ไม่มีในต้นฉบับ" }, { role: "user", content: command.argument }], model: modelId === "auto" ? undefined : modelId, maxTokens: 1200 }));
         reply = normalizeContent(response.choices[0]?.message?.content) || "ไม่พบผลสรุป";
       }
     } else if (command?.command === "plugin" || command?.command === "external") {
@@ -202,11 +206,10 @@ export const chatRouter = router({
       provider = "access-policy";
       usedModel = "bounded";
     } else if (command?.command === "save") {
-      reply = "บันทึกข้อความนี้ลงประวัติห้องสลี่แล้ว โดยใช้ server timestamp แบบ UTC Unix ms";
+      reply = userId ? "บันทึกข้อความนี้ลงประวัติห้องสลี่แล้ว โดยใช้ server timestamp แบบ UTC Unix ms" : "โหมดผู้เยี่ยมชมจะไม่บันทึกประวัติลงบัญชี กรุณาเข้าสู่ระบบหากต้องการเก็บประวัติ";
       provider = "manus-storage";
       usedModel = "bounded";
     } else if (command?.command === "project") {
-      const policy = confirmationFor("github-write");
       const match = /^([^/]+\/[^/]+)\/([^:]+?)\s*::\s*([\s\S]+)$/.exec(command.argument);
       if (!match) {
         reply = "ใช้รูปแบบ `/project owner/repository/path/to/file :: เนื้อหาใหม่` หลังยืนยัน เพื่ออัปเดตไฟล์จริงบน GitHub";
@@ -218,8 +221,8 @@ export const chatRouter = router({
         usedModel = "bounded";
       } else {
         try {
-          const result = await withErrorEvent(ctx.user.id, "เขียนไฟล์ GitHub ล้มเหลว", () => updateGithubFile(match[1], match[2], match[3], `Silelo update ${match[2]}`));
-          reply = `อัปเดตไฟล์บน GitHub สำเร็จจริง\\n\\n- Repository: \`${result.repository}\`\\n- ไฟล์: \`${result.path}\`\\n- Commit: [${result.commitSha}](${result.commitUrl})`;
+          const result = await withErrorEvent(userId, "เขียนไฟล์ GitHub ล้มเหลว", () => updateGithubFile(match[1], match[2], match[3], `Silelo update ${match[2]}`));
+          reply = `อัปเดตไฟล์บน GitHub สำเร็จจริง:\n\n- Repository: \`${result.repository}\`\n- ไฟล์: \`${result.path}\`\n- Commit: [${result.commitSha}](${result.commitUrl})`;
           provider = "github-api";
           usedModel = "github-rest";
         } catch (error) {
@@ -235,8 +238,8 @@ export const chatRouter = router({
         usedModel = "bounded";
       } else {
         try {
-          const repository = await withErrorEvent(ctx.user.id, "อ่าน GitHub repository ล้มเหลว", () => getGithubRepository(command.argument));
-          reply = `## GitHub repository จริง\\n\\n- **Repository:** [${repository.fullName}](${repository.htmlUrl})\\n- **สถานะ:** ${repository.private ? "Private" : "Public"}\\n- **Branch หลัก:** \`${repository.defaultBranch}\`\\n- **Issues ที่เปิดอยู่:** ${repository.openIssues}\\n- **อัปเดตล่าสุด:** ${repository.updatedAt}\\n\\nอ่านข้อมูลจาก GitHub API สำเร็จ การแก้ไขไฟล์ยังต้องใช้คำสั่งเขียนที่ระบุไฟล์และขอ confirmation เพิ่ม`;
+          const repository = await withErrorEvent(userId, "อ่าน GitHub repository ล้มเหลว", () => getGithubRepository(command.argument));
+          reply = `## GitHub repository จริง\n\n- **Repository:** [${repository.fullName}](${repository.htmlUrl})\n- **สถานะ:** ${repository.private ? "Private" : "Public"}\n- **Branch หลัก:** \`${repository.defaultBranch}\`\n- **Issues ที่เปิดอยู่:** ${repository.openIssues}\n- **อัปเดตล่าสุด:** ${repository.updatedAt}\n\nอ่านข้อมูลจาก GitHub API สำเร็จ การแก้ไขไฟล์ยังต้องใช้คำสั่งเขียนที่ระบุไฟล์และขอ confirmation เพิ่ม`;
           provider = "github-api";
           usedModel = "github-rest";
         } catch (error) {
@@ -246,19 +249,21 @@ export const chatRouter = router({
         }
       }
     } else {
-      const history = await getChatMessages(ctx.user.id, 24);
+      const history = userId ? await getChatMessages(userId, 24) : [];
       const messages = [
         { role: "system" as const, content: `คุณคือ “สลี่” ผู้ช่วย AI ในห้องเดียวของผู้ใช้ ตอบภาษาไทยเป็นหลัก ใช้ Markdown ได้ รวมความสามารถงานโค้ด การสรุป การแปล และการวิเคราะห์ไว้ในห้องเดียว ห้ามอ้างว่าได้อ่านไฟล์ เรียก GitHub ใช้ปลั๊กอิน ส่งอีเมล หรือทำงานภายนอก หากระบบไม่ได้ยืนยันว่าความสามารถนั้นพร้อมใช้ หากผู้ใช้ขอการเปลี่ยนแปลงสำคัญ ให้บอกสิ่งที่จะทำและขอการยืนยันก่อนเสมอ ถ้าเป็นงานโค้ด ให้เสนอแพตช์หรือขั้นตอนตรวจสอบ แต่ไม่รันโค้ดหรือเขียนไฟล์จริงโดยอัตโนมัติ` },
         ...history.map(message => ({ role: message.role as "user" | "assistant", content: message.content })),
       ];
-      const response = await withErrorEvent(ctx.user.id, "ตอบ LLM ล้มเหลว", () => invokeLLM({ messages, model: modelId === "auto" ? undefined : modelId, maxTokens: 2400 }));
+      const response = await withErrorEvent(userId, "ตอบ LLM ล้มเหลว", () => invokeLLM({ messages, model: modelId === "auto" ? undefined : modelId, maxTokens: 2400 }));
       reply = normalizeContent(response.choices[0]?.message?.content) || "สลี่ไม่ได้รับคำตอบจากโมเดลในครั้งนี้";
       usedModel = response.model || modelId;
     }
 
     if (!reply) reply = "สลี่ไม่มีข้อความตอบกลับในครั้งนี้";
-    await addChatMessage({ userId: ctx.user.id, role: "assistant", content: reply, provider, model: usedModel, status: "complete", createdAtUtc: Date.now() });
-    await recordEvent(ctx.user.id, "response.completed", "ตอบกลับสำเร็จ", "success", `${provider} · ${usedModel}`);
+    if (userId) {
+      await addChatMessage({ userId, role: "assistant", content: reply, provider, model: usedModel, status: "complete", createdAtUtc: Date.now() });
+    }
+    await recordEvent(userId, "response.completed", "ตอบกลับสำเร็จ", "success", `${provider} · ${usedModel}`);
     return { ok: true, room: SINGLE_ROOM_NAME, needsConfirmation: false, reply, provider, model: usedModel, attachmentUrl };
   }),
 });
