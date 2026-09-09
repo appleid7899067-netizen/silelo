@@ -1,0 +1,20 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://silelo-neo-connect.onrender.com/api/:path*"
+    },
+    {
+      "source": "/health",
+      "destination": "https://silelo-neo-connect.onrender.com/health"
+    },
+    {
+      "source": "/chat/:path*",
+      "destination": "/"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/"
+    }
+  ]
+}
