@@ -11,6 +11,12 @@ services:
         value: production
       - key: VITE_APP_ID
         sync: false
+      - key: VITE_OAUTH_PORTAL_URL
+        sync: false
+      - key: VITE_FRONTEND_FORGE_API_URL
+        sync: false
+      - key: VITE_FRONTEND_FORGE_API_KEY
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL
