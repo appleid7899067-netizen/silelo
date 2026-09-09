@@ -11,9 +11,10 @@ export type CatalogItem = {
 export const SINGLE_ROOM_KEY = "silelo" as const;
 export const SINGLE_ROOM_NAME = "สลี่" as const;
 
-/** Baseline models exposed by silelo-neo-connect before the Manus migration. */
+/** Baseline + external provider models exposed by silelo-neo-connect. */
 export const BASELINE_MODELS: CatalogItem[] = [
-  { id: "auto", label: "อัตโนมัติ (โซ่เต็ม)", description: "เลือกเส้นทางที่เหมาะสมให้อัตโนมัติ", state: "ready", note: "Manus gateway / OpenRouter" },
+  { id: "auto", label: "อัตโนมัติ (โซ่เต็ม)", description: "เลือกเส้นทางที่เหมาะสมให้อัตโนมัติ", state: "ready", note: "Manus gateway / multi-provider failover" },
+  { id: "openrouter/free", label: "OpenRouter Free Router", description: "เลือกโมเดลฟรีที่พร้อมใช้งานให้อัตโนมัติ", state: "setup", note: "OpenRouter" },
   { id: "openai/gpt-4o-mini", label: "GPT-4o mini", description: "โมเดลสนทนาขนาดเล็กผ่าน OpenRouter", state: "setup", note: "OpenRouter" },
   { id: "openrouter_fast", label: "OpenRouter · เน้นความเร็ว", description: "โหมดสำรองความหน่วงต่ำจากต้นทาง", state: "setup", note: "ต้องตั้งค่า provider ภายนอก" },
   { id: "openrouter_balanced", label: "OpenRouter · สมดุล/สำรอง", description: "โหมดสำรองแบบสมดุล", state: "setup", note: "ต้องตั้งค่า provider ภายนอก" },
@@ -27,27 +28,32 @@ export const BASELINE_MODELS: CatalogItem[] = [
   { id: "moonshotai/kimi-k2.7-code", label: "Kimi K2.7 Code", description: "โมเดลโค้ดจาก baseline", state: "setup", note: "ขึ้นกับ catalog ของ Manus" },
   { id: "z-ai/glm-5.2", label: "GLM-5.2", description: "โมเดลทั่วไปจาก baseline", state: "setup", note: "ขึ้นกับ catalog ของ Manus" },
   { id: "minimax/minimax-m3", label: "MiniMax M3", description: "โมเดลทั่วไปจาก baseline", state: "setup", note: "ขึ้นกับ catalog ของ Manus" },
+  { id: "groq/llama-3.1-8b-instant", label: "Groq · Llama 3.1 8B", description: "เส้นทาง Groq แบบเร็ว", state: "setup", note: "GROQ_API_KEY" },
+  { id: "groq/gemma2-9b-it", label: "Groq · Gemma 2 9B", description: "เส้นทาง Groq สำรอง", state: "setup", note: "GROQ_API_KEY" },
+  { id: "qwen/qwen-turbo", label: "Qwen Turbo", description: "Qwen ผ่าน DashScope OpenAI-compatible API", state: "setup", note: "QWEN_API_KEY" },
+  { id: "qwen/qwen-plus", label: "Qwen Plus", description: "Qwen ผ่าน DashScope OpenAI-compatible API", state: "setup", note: "QWEN_API_KEY" },
+  { id: "google/gemini-2.0-flash-exp", label: "Gemini 2.0 Flash Experimental", description: "Google Gemini ผ่าน Generative Language API", state: "setup", note: "GOOGLE_API_KEY" },
 ];
 
 export const BASELINE_SKILLS: CatalogItem[] = [
-  { id: "chat", label: "แชทและความจำ", description: "สนทนาในห้องสลี่เดียว พร้อมบริบทจากประวัติ", state: "ready", note: "Manus LLM + database" },
-  { id: "agents", label: "Parallel Agents", description: "คำสั่ง /agents, /parallel และ /squad จาก baseline", state: "setup", note: "ยังไม่ได้เปิด multi-provider ใน Manus" },
+  { id: "chat", label: "แชทและความจำ", description: "สนทนาในห้องสลี่เดียว พร้อมบริบทจากประวัติ", state: "ready", note: "LLM + database" },
+  { id: "agents", label: "Parallel Agents", description: "คำสั่ง /agents, /parallel และ /squad จาก baseline", state: "setup", note: "ยังไม่ได้เปิด multi-agent execution" },
   { id: "project", label: "Project Agent", description: "อ่านและวางแผนแก้ไฟล์โปรเจกต์จริง", state: "setup", note: "ต้องเชื่อม GitHub และยืนยันก่อนเขียน" },
   { id: "github", label: "GitHub Tool", description: "ดู repository, branch, file และ diff", state: "setup", note: "ต้องมี connector/สิทธิ์ GitHub จริง" },
-  { id: "code-create", label: "สร้างโค้ด", description: "สร้างโค้ดจากคำอธิบาย", state: "ready", note: "ใช้ Manus LLM" },
-  { id: "code-convert", label: "แปลงภาษา", description: "แปลงโค้ดระหว่างภาษา", state: "ready", note: "ใช้ Manus LLM; ไม่รันโค้ดอัตโนมัติ" },
-  { id: "code-explain", label: "อธิบายโค้ด", description: "อธิบายโค้ดเป็นส่วนๆ", state: "ready", note: "ใช้ Manus LLM" },
-  { id: "code-improve", label: "ปรับปรุงโค้ด", description: "เสนอการปรับปรุงประสิทธิภาพและความอ่านง่าย", state: "ready", note: "ใช้ Manus LLM" },
-  { id: "code-comment", label: "ใส่คอมเมนต์", description: "เติมคอมเมนต์อธิบายโค้ด", state: "ready", note: "ใช้ Manus LLM" },
-  { id: "code-test", label: "สร้าง Unit Test", description: "เสนอชุดทดสอบสำหรับโค้ด", state: "ready", note: "ใช้ Manus LLM; ไม่รันทดสอบแทนผู้ใช้" },
-  { id: "code-diagram", label: "สร้าง Diagram", description: "สร้าง Mermaid diagram จากคำอธิบาย", state: "ready", note: "ใช้ Manus LLM" },
-  { id: "code-refactor", label: "Refactor", description: "เสนอการจัดโครงสร้างโค้ดใหม่", state: "ready", note: "ใช้ Manus LLM; ต้องตรวจ diff ก่อนบันทึก" },
+  { id: "code-create", label: "สร้างโค้ด", description: "สร้างโค้ดจากคำอธิบาย", state: "ready", note: "ใช้ LLM router" },
+  { id: "code-convert", label: "แปลงภาษา", description: "แปลงโค้ดระหว่างภาษา", state: "ready", note: "ใช้ LLM router; ไม่รันโค้ดอัตโนมัติ" },
+  { id: "code-explain", label: "อธิบายโค้ด", description: "อธิบายโค้ดเป็นส่วนๆ", state: "ready", note: "ใช้ LLM router" },
+  { id: "code-improve", label: "ปรับปรุงโค้ด", description: "เสนอการปรับปรุงประสิทธิภาพและความอ่านง่าย", state: "ready", note: "ใช้ LLM router" },
+  { id: "code-comment", label: "ใส่คอมเมนต์", description: "เติมคอมเมนต์อธิบายโค้ด", state: "ready", note: "ใช้ LLM router" },
+  { id: "code-test", label: "สร้าง Unit Test", description: "เสนอชุดทดสอบสำหรับโค้ด", state: "ready", note: "ใช้ LLM router; ไม่รันทดสอบแทนผู้ใช้" },
+  { id: "code-diagram", label: "สร้าง Diagram", description: "สร้าง Mermaid diagram จากคำอธิบาย", state: "ready", note: "ใช้ LLM router" },
+  { id: "code-refactor", label: "Refactor", description: "เสนอการจัดโครงสร้างโค้ดใหม่", state: "ready", note: "ต้องตรวจ diff ก่อนบันทึก" },
   { id: "draw", label: "สร้างภาพ", description: "สร้างภาพจาก prompt", state: "ready", note: "Manus Image Service" },
   { id: "vision", label: "วิเคราะห์ภาพ", description: "ส่งภาพให้โมเดลวิเคราะห์", state: "ready", note: "ต้องส่งไฟล์หรือ URL ที่เข้าถึงได้" },
   { id: "voice-input", label: "พูดเป็นข้อความ", description: "รับเสียงจากเบราว์เซอร์และถอดความ", state: "setup", note: "ขึ้นกับสิทธิ์ไมโครโฟนและบริการถอดเสียง" },
   { id: "tts", label: "เสียงตอบกลับ", description: "อ่านคำตอบด้วยเสียง", state: "setup", note: "ยังไม่มี TTS เปิดในเวอร์ชันแรก" },
-  { id: "translate", label: "แปลภาษา", description: "แปลข้อความเป็นภาษาที่ต้องการ", state: "ready", note: "ใช้ Manus LLM" },
-  { id: "summarize", label: "สรุปข้อความ", description: "สรุปเอกสารหรือข้อความ", state: "ready", note: "ใช้ Manus LLM" },
+  { id: "translate", label: "แปลภาษา", description: "แปลข้อความเป็นภาษาที่ต้องการ", state: "ready", note: "ใช้ LLM router" },
+  { id: "summarize", label: "สรุปข้อความ", description: "สรุปเอกสารหรือข้อความ", state: "ready", note: "ใช้ LLM router" },
 ];
 
 export const BASELINE_COMMANDS: CatalogItem[] = [
@@ -56,8 +62,8 @@ export const BASELINE_COMMANDS: CatalogItem[] = [
   { id: "/models", label: "/models", description: "แสดง Model Catalog และสถานะ", state: "ready", note: "ตรวจจาก runtime catalog" },
   { id: "/skills", label: "/skills", description: "แสดง Skill Catalog และสถานะ", state: "ready", note: "baseline manifest" },
   { id: "/draw <prompt>", label: "/draw <prompt>", description: "สร้างภาพเมื่อได้รับคำสั่งอย่างชัดเจน", state: "ready", note: "ยืนยันก่อนเรียกใช้ service ที่มีค่าใช้จ่าย/ทรัพยากร" },
-  { id: "/translate", label: "/translate <ภาษา> :: <ข้อความ>", description: "แปลข้อความผ่าน AI", state: "ready", note: "ใช้ Manus LLM" },
-  { id: "/summarize", label: "/summarize <ข้อความ>", description: "สรุปข้อความผ่าน AI", state: "ready", note: "ใช้ Manus LLM" },
+  { id: "/translate", label: "/translate <ภาษา> :: <ข้อความ>", description: "แปลข้อความผ่าน AI", state: "ready", note: "ใช้ LLM router" },
+  { id: "/summarize", label: "/summarize <ข้อความ>", description: "สรุปข้อความผ่าน AI", state: "ready", note: "ใช้ LLM router" },
   { id: "/project", label: "/project ...", description: "ดูสถานะหรือวางแผนแก้โปรเจกต์จริง", state: "setup", note: "ต้องยืนยันและเชื่อม GitHub" },
 ];
 
