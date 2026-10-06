@@ -3,7 +3,7 @@ services:
     name: silelo
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
+    buildCommand: pnpm install --frozen-lockfile && pnpm build
     startCommand: node dist/index.js
     healthCheckPath: /health
     envVars:
