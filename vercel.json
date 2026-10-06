@@ -4,11 +4,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://silelo-66v4.onrender.com/api/:path*"
+      "destination": "https://silelo-live.onrender.com/api/:path*"
     },
     {
       "source": "/health",
-      "destination": "https://silelo-66v4.onrender.com/health"
+      "destination": "https://silelo-live.onrender.com/health"
     },
     {
       "source": "/chat/:path*",
