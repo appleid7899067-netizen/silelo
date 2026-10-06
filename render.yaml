@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: silelo-neo-connect
+    name: silelo
     runtime: node
     plan: free
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm build
@@ -62,4 +62,4 @@ services:
       - key: MCP_SERVER_URL
         value: http://localhost:3001/mcp
       - key: APP_URL
-        value: https://silelo-neo-connect.onrender.com
+        value: https://silelo.onrender.com
