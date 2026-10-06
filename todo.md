@@ -15,7 +15,6 @@
 - [ ] Check callback URL validation, CSRF/state handling, session/token storage, and scope minimization.
 - [ ] Inspect email-related routes, UI, error handling, rate limits, and audit logging.
 - [ ] Review tests and run safe static checks without opening or modifying real email.
-- [ ] Write an evidence-based audit summary with severity and concrete remediation steps.
 
 ## Render deployment repair
 
@@ -38,7 +37,7 @@
 
 ## Sli chat route adjustment
 
-- [ ] Check current production handling for `/`, `/chat`, `/chat/:roomId`, and `/silelo-neo-connect`.
+- [ ] Check current production handling for `/`, `/chat`, `/chat/:roomId`, and `/silelo`.
 - [ ] Preserve the real Sli chat flow and avoid adding fake automatic replies.
 - [ ] Add or correct route handling and refresh fallback only where needed.
 - [ ] Ensure landing-page links point to the canonical Sli chat URL.
