@@ -20,7 +20,7 @@ export const appRouter = router({
   mcp: router({
     status: protectedProcedure.query(() => ({ enabled: mcpClient.enabled(), readOnly: mcpClient.isReadOnly() })),
     tools: protectedProcedure.query(() => mcpClient.listTools()),
-    call: protectedProcedure
+    invoke: protectedProcedure
       .input(z.object({ name: z.string().trim().min(1).max(200), args: z.record(z.string(), z.unknown()).optional() }))
       .mutation(({ input }) => mcpClient.callTool(input.name, input.args || {})),
   }),
