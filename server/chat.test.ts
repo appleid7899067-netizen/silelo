@@ -10,9 +10,9 @@ vi.mock("./_core/imageGeneration", () => ({
 }));
 vi.mock("./github", () => ({
   githubPermissionStatus: vi.fn(async () => ({ read: true, write: true })),
-  allowedGithubRepositories: vi.fn(() => ["phanuphanthcanthrsngsaeng17-del/silelo-neo-connect"]),
+  allowedGithubRepositories: vi.fn(() => ["appleid7899067-netizen/silelo"]),
   getGithubRepository: vi.fn(),
-  updateGithubFile: vi.fn(async () => ({ repository: "phanuphanthcanthrsngsaeng17-del/silelo-neo-connect", path: "README.md", commitSha: "test-sha", commitUrl: "https://github.com/example/commit/test-sha" })),
+  updateGithubFile: vi.fn(async () => ({ repository: "appleid7899067-netizen/silelo", path: "README.md", commitSha: "test-sha", commitUrl: "https://github.com/example/commit/test-sha" })),
 }));
 vi.mock("./db", () => ({
   SINGLE_ROOM_DB_KEY: "silelo",
@@ -95,10 +95,10 @@ describe("chat single-room policy", () => {
   it("does not write GitHub before confirmation and writes only after confirmation", async () => {
     const caller = appRouter.createCaller(context());
     vi.mocked(updateGithubFile).mockClear();
-    const pending = await caller.chat.send({ content: "/project phanuphanthcanthrsngsaeng17-del/silelo-neo-connect/README.md :: verified update" });
+    const pending = await caller.chat.send({ content: "/project appleid7899067-netizen/silelo/README.md :: verified update" });
     expect(pending.needsConfirmation).toBe(true);
     expect(updateGithubFile).not.toHaveBeenCalled();
-    const committed = await caller.chat.send({ content: "/project phanuphanthcanthrsngsaeng17-del/silelo-neo-connect/README.md :: verified update", confirm: true });
+    const committed = await caller.chat.send({ content: "/project appleid7899067-netizen/silelo/README.md :: verified update", confirm: true });
     expect(committed.reply).toContain("อัปเดตไฟล์บน GitHub สำเร็จจริง");
     expect(updateGithubFile).toHaveBeenCalledTimes(1);
   });
@@ -109,7 +109,7 @@ describe("chat single-room policy", () => {
     const result = await caller.chat.send({ content: "/project other-owner/other-repo/README.md :: blocked", confirm: true });
     expect(result.reply).toContain("ไม่อยู่ใน allowlist");
     expect(updateGithubFile).not.toHaveBeenCalled();
-    expect(allowedGithubRepositories()).toContain("phanuphanthcanthrsngsaeng17-del/silelo-neo-connect");
+    expect(allowedGithubRepositories()).toContain("appleid7899067-netizen/silelo");
   });
 
   it("requires confirmation through the shared policy before GitHub actions", async () => {

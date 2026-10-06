@@ -11,7 +11,7 @@ export type CatalogItem = {
 export const SINGLE_ROOM_KEY = "silelo" as const;
 export const SINGLE_ROOM_NAME = "สลี่" as const;
 
-/** Baseline + external provider models exposed by silelo-neo-connect. */
+/** Baseline + external provider models exposed by SILELO. */
 export const BASELINE_MODELS: CatalogItem[] = [
   { id: "auto", label: "อัตโนมัติ (โซ่เต็ม)", description: "เลือกเส้นทางที่เหมาะสมให้อัตโนมัติ", state: "ready", note: "Manus gateway / multi-provider failover" },
   { id: "openrouter/free", label: "OpenRouter Free Router", description: "เลือกโมเดลฟรีที่พร้อมใช้งานให้อัตโนมัติ", state: "setup", note: "OpenRouter" },

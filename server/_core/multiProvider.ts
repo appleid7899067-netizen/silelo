@@ -50,7 +50,7 @@ const providers = (): ProviderConfig[] => [
     apiKey: process.env.GOOGLE_API_KEY || "",
     models: splitModels(process.env.GOOGLE_GEMINI_MODEL, ["gemini-2.0-flash-exp"]),
   },
-].filter(provider => provider.apiKey);
+].filter((provider): provider is ProviderConfig => Boolean(provider.apiKey));
 
 const MAX_LOOPS = 8;
 

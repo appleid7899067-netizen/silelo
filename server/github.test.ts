@@ -19,8 +19,8 @@ describe("GitHub integration credential", () => {
   }, 15_000);
 
   it("reads the configured source repository metadata", async () => {
-    const repository = await getGithubRepository("phanuphanthcanthrsngsaeng17-del/silelo-neo-connect");
-    expect(repository.fullName).toBe("phanuphanthcanthrsngsaeng17-del/silelo-neo-connect");
+    const repository = await getGithubRepository("appleid7899067-netizen/silelo");
+    expect(repository.fullName).toBe("appleid7899067-netizen/silelo");
     expect(repository.defaultBranch).toBeTruthy();
   }, 15_000);
 });
