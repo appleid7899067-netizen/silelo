@@ -1,5 +1,5 @@
 const GITHUB_API = "https://api.github.com";
-const DEFAULT_REPOSITORY = "phanuphanthcanthrsngsaeng17-del/silelo-neo-connect";
+const DEFAULT_REPOSITORY = "appleid7899067-netizen/silelo";
 type GithubPermission = { read: boolean; write: boolean; error?: string };
 let permissionCache: { expiresAt: number; value: GithubPermission } | undefined;
 
