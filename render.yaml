@@ -62,4 +62,4 @@ services:
       - key: MCP_SERVER_URL
         value: http://localhost:3001/mcp
       - key: APP_URL
-        value: https://silelo.onrender.com
+        value: https://silelo-66v4.onrender.com
